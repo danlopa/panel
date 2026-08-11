@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16101F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="robots" content="noindex,nofollow">
+<title>Finanzas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Martian+Mono:wght@300;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--tinta:#16101F;--sup:#211a2e;--linea:#2f2740;--texto:#F2EDE4;--tenue:#9A93A8;--verde:#2FA98C}
+body{background:var(--tinta);color:var(--texto);font-family:'Bricolage Grotesque',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;padding:24px 20px calc(40px + env(safe-area-inset-bottom));
+  max-width:560px;margin:0 auto;min-height:100vh}
+.mono{font-family:'Martian Mono',ui-monospace,monospace}
+
+header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px}
+h1{font-size:15px;font-weight:600;letter-spacing:-.01em}
+header time{font-family:'Martian Mono',monospace;font-size:10px;color:var(--tenue);letter-spacing:.04em}
+
+.saldo{border:1px solid var(--linea);border-radius:18px;padding:20px;margin-bottom:26px;
+  background:linear-gradient(160deg,#241c33,#1a1426)}
+.et{font-family:'Martian Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--tenue)}
+.saldo strong{display:block;font-size:clamp(38px,12vw,52px);font-weight:800;letter-spacing:-.035em;
+  line-height:1.05;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+.saldo .pie{display:flex;gap:18px;margin-top:14px;padding-top:14px;border-top:1px solid var(--linea)}
+.saldo .pie div{flex:1}
+.saldo .pie b{display:block;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+
+nav{display:flex;gap:6px;margin-bottom:22px}
+nav button{flex:1;background:none;border:1px solid var(--linea);color:var(--tenue);
+  font-family:'Martian Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  padding:11px 0;border-radius:11px;cursor:pointer;transition:.18s}
+nav button[aria-selected=true]{background:var(--texto);color:var(--tinta);border-color:var(--texto)}
+nav button:focus-visible{outline:2px solid var(--verde);outline-offset:2px}
+
+.cifra{margin-bottom:16px}
+.cifra strong{display:block;font-size:clamp(30px,9vw,40px);font-weight:800;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;margin-top:4px}
+.cifra .sub{font-size:12px;color:var(--verde)}
+
+.banda{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--sup);margin-bottom:22px}
+.banda span{transform:scaleX(0);transform-origin:left;animation:crece .5s cubic-bezier(.2,.8,.3,1) forwards}
+.banda span:nth-child(2){animation-delay:.06s}.banda span:nth-child(3){animation-delay:.12s}
+.banda span:nth-child(4){animation-delay:.18s}.banda span:nth-child(5){animation-delay:.24s}
+.banda span:nth-child(n+6){animation-delay:.3s}
+@keyframes crece{to{transform:scaleX(1)}}
+
+ul{list-style:none}
+.cats li,.movs li{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--linea)}
+.cats li:last-child,.movs li:last-child{border-bottom:0}
+.cats i,.movs i{width:7px;height:7px;border-radius:2px;flex:0 0 auto}
+.cv{flex:1;min-width:0}
+.cv b{font-size:14px;font-weight:500;display:block;margin-bottom:5px}
+.track{height:3px;background:var(--sup);border-radius:99px;overflow:hidden}
+.track span{display:block;height:100%;transform:scaleX(0);transform-origin:left;
+  animation:crece .55s .1s cubic-bezier(.2,.8,.3,1) forwards}
+.cr,.mr{text-align:right;flex:0 0 auto}
+.cr b,.mr b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;display:block}
+.cr small,.mr small{font-family:'Martian Mono',monospace;font-size:9px;color:var(--tenue)}
+.vacio{color:var(--tenue);font-size:13px;padding:18px 0;text-align:center}
+
+h2{font-family:'Martian Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--tenue);margin:34px 0 14px}
+
+.meses{display:flex;gap:5px;align-items:flex-end;height:88px}
+.mbar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:6px}
+.mbar span{width:100%;background:var(--linea);border-radius:4px 4px 2px 2px;transform:scaleY(0);
+  transform-origin:bottom;animation:sube .5s cubic-bezier(.2,.8,.3,1) forwards}
+.mbar.on span{background:var(--verde)}
+.mbar em{font-family:'Martian Mono',monospace;font-size:8px;color:var(--tenue);font-style:normal}
+.mbar.on em{color:var(--texto)}
+@keyframes sube{to{transform:scaleY(1)}}
+
+.mv{flex:1;min-width:0}
+.mv b{font-size:14px;font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mv small{font-size:11px;color:var(--tenue)}
+.mr b.in{color:var(--verde)}
+
+footer{margin-top:34px;text-align:center;font-family:'Martian Mono',monospace;font-size:9px;
+  color:var(--tenue);letter-spacing:.06em}
+
+#estado{text-align:center;padding:60px 20px;color:var(--tenue);font-size:14px;line-height:1.6}
+#estado code{font-family:'Martian Mono',monospace;font-size:11px;color:var(--texto);
+  background:var(--sup);padding:3px 7px;border-radius:5px;display:inline-block;margin-top:10px}
+#app{display:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}
+  .banda span,.track span,.mbar span{transform:none!important}}
+</style>
+</head>
+<body>
+
+<div id="estado">Cargando…</div>
+
+<div id="app">
+  <header><h1>Finanzas</h1><time class="mono" id="fecha"></time></header>
+
+  <div class="saldo">
+    <span class="et">disponible</span>
+    <strong id="disp"></strong>
+    <div class="pie">
+      <div><span class="et">debés en tarjeta</span><b id="deuda"></b></div>
+      <div><span class="et">neto real</span><b id="neto"></b></div>
+    </div>
+  </div>
+
+  <nav role="tablist">
+    <button role="tab" data-t="hoy" aria-selected="false">Hoy</button>
+    <button role="tab" data-t="mes" aria-selected="true">Mes</button>
+    <button role="tab" data-t="anio" aria-selected="false">Año</button>
+  </nav>
+
+  <div class="cifra">
+    <span class="et">gastado</span>
+    <strong id="total"></strong>
+    <span class="sub" id="entro"></span>
+  </div>
+  <div class="banda" id="banda"></div>
+  <ul class="cats" id="cats"></ul>
+  <p class="mono" id="ritmo" style="font-size:10px;color:var(--tenue);margin-top:18px"></p>
+
+  <h2>Últimos 12 meses</h2>
+  <div class="meses" id="meses"></div>
+
+  <h2>Movimientos recientes</h2>
+  <ul class="movs" id="movs"></ul>
+
+  <footer id="pie"></footer>
+</div>
+
+<script>
+// ── Configuración ──────────────────────────────────────────
+// Reemplazá por la URL de tu función. La clave NO va acá:
+// se pasa en el fragmento de la dirección (#tuclave), que el
+// navegador nunca manda al servidor de GitHub.
+const ENDPOINT = "https://jhdmsccueqvsranqaths.supabase.co/functions/v1/panel";
+
+const COLOR = {
+  "Vivienda":"#7B5EA7", "Alimentación":"#2FA98C", "Movilidad":"#E0813F",
+  "Ocio":"#C4576B", "Personal":"#D9B65A", "Personas":"#5B8FD9",
+  "Financiero":"#6E8B5A", "Ingresos":"#2FA98C", "Otros":"#8A8296"
+};
+const MES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+const pesos = n => "$" + Math.round(Math.abs(n)).toLocaleString("es-CO");
+const corto = n => { const a = Math.abs(n);
+  if (a >= 1e6) return "$" + (a/1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
+  if (a >= 1e3) return "$" + Math.round(a/1e3) + "k";
+  return "$" + a; };
+const col = c => COLOR[c] || COLOR.Otros;
+
+function clave() {
+  const h = location.hash.slice(1);
+  if (h) { try { localStorage.setItem("k", h); } catch {} history.replaceState(null,"",location.pathname); return h; }
+  try { return localStorage.getItem("k") || ""; } catch { return ""; }
+}
+
+let D = null;
+
+function pintarPeriodo(p) {
+  const d = D.periodos[p];
+  document.getElementById("total").textContent = pesos(d.total);
+  document.getElementById("entro").textContent = d.ingreso ? "entraron " + pesos(d.ingreso) : "";
+  const suma = d.cats.reduce((s,c) => s + Number(c.gasto), 0) || 1;
+
+  document.getElementById("banda").innerHTML = d.cats.map(c =>
+    `<span style="width:${(c.gasto/suma*100).toFixed(2)}%;background:${col(c.categoria)}"></span>`).join("");
+
+  document.getElementById("cats").innerHTML = d.cats.length ? d.cats.map(c => {
+    const pct = c.gasto / suma * 100;
+    return `<li><i style="background:${col(c.categoria)}"></i>
+      <div class="cv"><b>${c.categoria}</b>
+        <div class="track"><span style="width:${pct.toFixed(1)}%;background:${col(c.categoria)}"></span></div></div>
+      <div class="cr"><b>${corto(c.gasto)}</b><small>${pct.toFixed(0)}%</small></div></li>`;
+  }).join("") : `<li class="vacio">Sin gastos en este periodo.</li>`;
+
+  const r = document.getElementById("ritmo");
+  r.textContent = (p === "mes" && D.ritmo) ? "A este ritmo el mes cierra en " + pesos(D.ritmo) : "";
+}
+
+function pintar() {
+  document.getElementById("fecha").textContent =
+    new Date().toLocaleDateString("es-CO", {timeZone:"America/Bogota", day:"2-digit", month:"short"});
+
+  const p = D.posicion;
+  document.getElementById("disp").textContent = pesos(p.saldo_disponible);
+  document.getElementById("deuda").textContent = pesos(p.deuda_pendiente);
+  document.getElementById("neto").textContent = pesos(p.neto_real);
+
+  const max = Math.max(...D.meses.map(m => Number(m.gasto)), 1);
+  const actual = new Date().toLocaleDateString("sv-SE", {timeZone:"America/Bogota"}).slice(0,7);
+  document.getElementById("meses").innerHTML = D.meses.map((m,i) => {
+    const mm = +m.mes.split("-")[1];
+    const h = Math.max(2, Math.round(m.gasto / max * 100));
+    return `<div class="mbar${m.mes === actual ? " on" : ""}" title="${MES[mm-1]}: ${pesos(m.gasto)}">
+      <span style="height:${h}%;animation-delay:${i*0.03}s"></span><em>${MES[mm-1]}</em></div>`;
+  }).join("");
+
+  document.getElementById("movs").innerHTML = D.ultimos.map(m => {
+    const ing = m.naturaleza === "ingreso";
+    const f = new Date(m.fecha + "T12:00:00");
+    return `<li><i style="background:${col(m.categoria)}"></i>
+      <div class="mv"><b>${m.concepto}</b>
+        <small>${m.subcategoria}${m.tienda ? " · " + m.tienda : ""}</small></div>
+      <div class="mr"><b class="${ing?"in":""}">${ing?"+":"−"}${corto(m.cantidad)}</b>
+        <small>${f.getDate()} ${MES[f.getMonth()]}</small></div></li>`;
+  }).join("");
+
+  document.getElementById("pie").textContent =
+    D.totales.movs_hoy + (D.totales.movs_hoy === 1 ? " movimiento hoy" : " movimientos hoy");
+
+  pintarPeriodo("mes");
+  document.getElementById("estado").style.display = "none";
+  document.getElementById("app").style.display = "block";
+}
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(o => o.setAttribute("aria-selected", String(o === b)));
+  pintarPeriodo(b.dataset.t);
+});
+
+(async () => {
+  const k = clave();
+  const est = document.getElementById("estado");
+  if (!k) {
+    est.innerHTML = "Falta la clave de acceso.<br>Abrí esta página añadiendo tu clave al final:<code>…/index.html#tuclave</code>";
+    return;
+  }
+  try {
+    const r = await fetch(ENDPOINT + "?k=" + encodeURIComponent(k), { cache: "no-store" });
+    if (r.status === 401) {
+      try { localStorage.removeItem("k"); } catch {}
+      est.innerHTML = "Clave incorrecta.<br>Volvé a abrir la página con la clave correcta al final de la dirección.";
+      return;
+    }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    D = await r.json();
+    if (D.error) throw new Error(D.error);
+    pintar();
+  } catch (e) {
+    est.innerHTML = "No pude cargar los datos.<br><code>" + String(e.message || e) + "</code>";
+  }
+})();
+</script>
+</body>
+</html>
