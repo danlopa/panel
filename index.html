@@ -85,6 +85,37 @@ h2{font-family:'Martian Mono',monospace;font-size:9px;letter-spacing:.18em;text-
 footer{margin-top:34px;text-align:center;font-family:'Martian Mono',monospace;font-size:9px;
   color:var(--tenue);letter-spacing:.06em}
 
+.comp{display:flex;gap:10px;margin-bottom:22px}
+.comp>div{flex:1;border:1px solid var(--linea);border-radius:13px;padding:13px}
+.comp b{display:block;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
+.comp .up{color:#C4576B}.comp .dn{color:var(--verde)}
+
+.dias{display:flex;gap:2px;align-items:flex-end;height:52px;margin-bottom:6px}
+.dias div{flex:1;background:var(--linea);border-radius:2px;min-height:2px}
+.dias div.alto{background:#C4576B}
+
+.pill{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.pill span{border:1px solid var(--linea);border-radius:99px;padding:5px 11px;font-size:11px}
+.pill span b{font-variant-numeric:tabular-nums}
+
+.aud li{padding:12px 0;border-bottom:1px solid var(--linea)}
+.aud .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.aud .top b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.aud .top span{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aud .meta{font-size:11px;color:var(--tenue);margin-top:3px}
+.aud .orig{font-family:'Martian Mono',monospace;font-size:10px;color:var(--tenue);
+  background:var(--sup);border-radius:6px;padding:6px 9px;margin-top:7px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aud .tag{font-family:'Martian Mono',monospace;font-size:8px;letter-spacing:.1em;
+  text-transform:uppercase;border:1px solid var(--linea);border-radius:4px;padding:2px 5px;color:var(--tenue)}
+
+details{margin-top:10px}
+summary{cursor:pointer;font-family:'Martian Mono',monospace;font-size:9px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--tenue);padding:8px 0;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"› ";display:inline-block;transition:.2s}
+details[open] summary::before{transform:rotate(90deg)}
+
 #estado{text-align:center;padding:60px 20px;color:var(--tenue);font-size:14px;line-height:1.6}
 #estado code{font-family:'Martian Mono',monospace;font-size:11px;color:var(--texto);
   background:var(--sup);padding:3px 7px;border-radius:5px;display:inline-block;margin-top:10px}
@@ -124,11 +155,32 @@ footer{margin-top:34px;text-align:center;font-family:'Martian Mono',monospace;fo
   <ul class="cats" id="cats"></ul>
   <p class="mono" id="ritmo" style="font-size:10px;color:var(--tenue);margin-top:18px"></p>
 
+  <h2>Comparado con el mes anterior</h2>
+  <div class="comp" id="comp"></div>
+
+  <h2>Ritmo del mes</h2>
+  <div class="dias" id="dias"></div>
+  <p class="mono" id="diasNota" style="font-size:9px;color:var(--tenue)"></p>
+
+  <h2>Cómo pagás este mes</h2>
+  <div class="pill" id="medios"></div>
+
+  <h2>Gastos hormiga</h2>
+  <p id="hormiga" style="font-size:13px;line-height:1.6"></p>
+
+  <h2>Recurrentes</h2>
+  <ul class="cats" id="recur"></ul>
+
   <h2>Últimos 12 meses</h2>
   <div class="meses" id="meses"></div>
 
   <h2>Movimientos recientes</h2>
   <ul class="movs" id="movs"></ul>
+
+  <details>
+    <summary>Auditoría de registro</summary>
+    <ul class="aud" id="aud"></ul>
+  </details>
 
   <footer id="pie"></footer>
 </div>
@@ -213,6 +265,79 @@ function pintar() {
 
   document.getElementById("pie").textContent =
     D.totales.movs_hoy + (D.totales.movs_hoy === 1 ? " movimiento hoy" : " movimientos hoy");
+
+  // Comparativo con el mes anterior a la misma altura
+  const c = D.comparativo;
+  if (c) {
+    const sube = c.diferencia > 0;
+    document.getElementById("comp").innerHTML = `
+      <div><span class="et">este mes</span><b>${pesos(c.mes_actual)}</b></div>
+      <div><span class="et">mes previo, mismo día</span><b>${pesos(c.mes_previo_mismo_dia)}</b></div>
+      <div><span class="et">diferencia</span>
+        <b class="${sube?"up":"dn"}">${sube?"+":"−"}${corto(c.diferencia)}</b>${
+          c.variacion_pct !== null ? '<small style="font-family:Martian Mono,monospace;font-size:10px;color:var(--tenue)">' +
+          (sube?"+":"") + c.variacion_pct + '%</small>' : ""}</div>`;
+  }
+
+  // Ritmo diario del mes
+  if (D.dias && D.dias.length) {
+    const maxD = Math.max(...D.dias.map(d => Number(d.gasto)), 1);
+    const prom = D.dias.reduce((s,d) => s + Number(d.gasto), 0) / D.dias.length;
+    const hoyN = new Date().getDate();
+    const porDia = {};
+    D.dias.forEach(d => porDia[new Date(d.fecha + "T12:00:00").getDate()] = Number(d.gasto));
+    let barras = "";
+    for (let i = 1; i <= hoyN; i++) {
+      const v = porDia[i] || 0;
+      barras += `<div class="${v > prom * 1.8 ? "alto" : ""}" style="height:${
+        Math.max(2, Math.round(v / maxD * 100))}%" title="${i}: ${pesos(v)}"></div>`;
+    }
+    document.getElementById("dias").innerHTML = barras;
+    document.getElementById("diasNota").textContent =
+      "Promedio diario " + pesos(prom) + " · en rojo, los días sobre el doble del promedio";
+  }
+
+  // Medios de pago
+  if (D.medios && D.medios.length) {
+    const nom = {efectivo:"Efectivo", tarjeta_credito:"Tarjeta", debito:"Débito",
+                 transferencia:"Transferencia", bono:"Bono", "sin registrar":"Sin registrar"};
+    document.getElementById("medios").innerHTML = D.medios.map(m =>
+      `<span>${nom[m.medio] || m.medio} <b>${corto(m.total)}</b></span>`).join("");
+  }
+
+  // Gastos hormiga
+  const hm = D.hormiga;
+  if (hm) {
+    document.getElementById("hormiga").innerHTML = hm.movimientos
+      ? `<b>${hm.movimientos}</b> movimientos de $20.000 o menos suman
+         <b>${pesos(hm.total)}</b>, el <b>${hm.pct_del_gasto}%</b> de tu gasto del mes.
+         Promedio ${pesos(hm.promedio)} cada uno.`
+      : "Sin gastos pequeños registrados este mes.";
+  }
+
+  // Recurrentes
+  if (D.recurrentes && D.recurrentes.length) {
+    const mx = Math.max(...D.recurrentes.map(r => Number(r.promedio_mes)), 1);
+    document.getElementById("recur").innerHTML = D.recurrentes.map(r =>
+      `<li><i style="background:${col(r.categoria)}"></i>
+        <div class="cv"><b>${r.subcategoria}</b>
+          <div class="track"><span style="width:${(r.promedio_mes/mx*100).toFixed(0)}%;background:${col(r.categoria)}"></span></div></div>
+        <div class="cr"><b>${corto(r.promedio_mes)}</b><small>${r.meses} meses</small></div></li>`).join("");
+  }
+
+  // Auditoría: qué escribiste y en qué se convirtió
+  if (D.auditoria && D.auditoria.length) {
+    document.getElementById("aud").innerHTML = D.auditoria.map(a => {
+      const ing = a.naturaleza === "ingreso";
+      return `<li>
+        <div class="top"><span>${a.concepto}</span>
+          <b class="${ing?"in":""}">${ing?"+":"−"}${corto(a.cantidad)}</b></div>
+        <div class="meta">${a.categoria} · ${a.subcategoria} · ${a.fecha} ·
+          ${a.medio_pago || "sin medio"} <span class="tag">${a.fuente}</span></div>
+        ${a.texto_original ? `<div class="orig">"${a.texto_original}"</div>` : ""}
+      </li>`;
+    }).join("");
+  }
 
   pintarPeriodo("mes");
   document.getElementById("estado").style.display = "none";
