@@ -116,6 +116,19 @@ summary::-webkit-details-marker{display:none}
 summary::before{content:"› ";display:inline-block;transition:.2s}
 details[open] summary::before{transform:rotate(90deg)}
 
+.mnav{display:flex;gap:6px;margin:-12px 0 20px}
+.mnav button,.mnav select{background:none;border:1px solid var(--linea);color:var(--texto);border-radius:11px;
+  font-family:'Martian Mono',monospace;font-size:11px;padding:10px 12px;cursor:pointer}
+.mnav select{flex:1;text-transform:capitalize;-webkit-appearance:none;appearance:none;text-align:center}
+.mnav button:disabled{opacity:.3;cursor:default}
+.mnav option{background:var(--tinta)}
+.cats li[data-c]{cursor:pointer}
+.cats li.det{display:block;padding:2px 0 12px 19px}
+.det .r{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:12px;border-bottom:1px dashed var(--linea)}
+.det .r:last-child{border-bottom:0}.det .r span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.det .r small{color:var(--tenue);font-family:'Martian Mono',monospace;font-size:9px;margin-left:6px}
+.det .r b{font-variant-numeric:tabular-nums;flex:0 0 auto}
+#app.carga{opacity:.45;transition:opacity .15s}
 #estado{text-align:center;padding:60px 20px;color:var(--tenue);font-size:14px;line-height:1.6}
 #estado code{font-family:'Martian Mono',monospace;font-size:11px;color:var(--texto);
   background:var(--sup);padding:3px 7px;border-radius:5px;display:inline-block;margin-top:10px}
@@ -130,6 +143,7 @@ details[open] summary::before{transform:rotate(90deg)}
 
 <div id="app">
   <header><h1>Finanzas</h1><time class="mono" id="fecha"></time></header>
+  <div class="mnav"><button id="mPrev" aria-label="Mes anterior">‹</button><select id="mSel" aria-label="Mes"></select><button id="mNext" aria-label="Mes siguiente">›</button></div>
 
   <div class="saldo">
     <span class="et">disponible</span>
@@ -204,6 +218,7 @@ const corto = n => { const a = Math.abs(n);
   if (a >= 1e6) return "$" + (a/1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
   if (a >= 1e3) return "$" + Math.round(a/1e3) + "k";
   return "$" + a; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const col = c => COLOR[c] || COLOR.Otros;
 
 function clave() {
@@ -213,6 +228,14 @@ function clave() {
 }
 
 let D = null;
+
+function detalle(cat, p) {
+  const hoyS = new Date().toLocaleDateString("sv-SE", {timeZone:"America/Bogota"});
+  const xs = (D.movimientos || []).filter(m => m.naturaleza === "gasto" && m.categoria === cat && (p !== "hoy" || m.fecha === hoyS));
+  if (!xs.length) return '<li class="det"><div class="r">Sin movimientos.</div></li>';
+  return '<li class="det">' + xs.map(m => { const f = new Date(m.fecha + "T12:00:00");
+    return `<div class="r"><span>${esc(m.concepto)}<small>${esc(m.tienda || m.subcategoria)} · ${f.getDate()} ${MES[f.getMonth()]}</small></span><b>${corto(m.cantidad)}</b></div>`; }).join("") + "</li>";
+}
 
 function pintarPeriodo(p) {
   const d = D.periodos[p];
@@ -225,12 +248,21 @@ function pintarPeriodo(p) {
 
   document.getElementById("cats").innerHTML = d.cats.length ? d.cats.map(c => {
     const pct = c.gasto / suma * 100;
-    return `<li><i style="background:${col(c.categoria)}"></i>
+    return `<li data-c="${esc(c.categoria)}"${p !== "anio" ? ' tabindex="0" role="button"' : ""}><i style="background:${col(c.categoria)}"></i>
       <div class="cv"><b>${c.categoria}</b>
         <div class="track"><span style="width:${pct.toFixed(1)}%;background:${col(c.categoria)}"></span></div></div>
       <div class="cr"><b>${corto(c.gasto)}</b><small>${pct.toFixed(0)}%</small></div></li>`;
   }).join("") : `<li class="vacio">Sin gastos en este periodo.</li>`;
 
+  document.querySelectorAll("#cats li[data-c]").forEach(li => {
+    if (p === "anio") { li.style.cursor = "default"; return; }
+    const abrir = () => {
+      const abierto = li.nextElementSibling && li.nextElementSibling.classList.contains("det");
+      document.querySelectorAll("#cats .det").forEach(x => x.remove());
+      if (!abierto) li.insertAdjacentHTML("afterend", detalle(li.dataset.c, p));
+    };
+    li.onclick = abrir; li.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); } };
+  });
   const r = document.getElementById("ritmo");
   r.textContent = (p === "mes" && D.ritmo) ? "A este ritmo el mes cierra en " + pesos(D.ritmo) : "";
 }
@@ -249,7 +281,7 @@ function pintar() {
   document.getElementById("meses").innerHTML = D.meses.map((m,i) => {
     const mm = +m.mes.split("-")[1];
     const h = Math.max(2, Math.round(m.gasto / max * 100));
-    return `<div class="mbar${m.mes === actual ? " on" : ""}" title="${MES[mm-1]}: ${pesos(m.gasto)}">
+    return `<div data-m="${m.mes}" style="cursor:pointer" class="mbar${m.mes === D.mes ? " on" : ""}" title="${MES[mm-1]}: ${pesos(m.gasto)}">
       <span style="height:${h}%;animation-delay:${i*0.03}s"></span><em>${MES[mm-1]}</em></div>`;
   }).join("");
 
@@ -257,8 +289,8 @@ function pintar() {
     const ing = m.naturaleza === "ingreso";
     const f = new Date(m.fecha + "T12:00:00");
     return `<li><i style="background:${col(m.categoria)}"></i>
-      <div class="mv"><b>${m.concepto}</b>
-        <small>${m.subcategoria}${m.tienda ? " · " + m.tienda : ""}</small></div>
+      <div class="mv"><b>${esc(m.concepto)}</b>
+        <small>${esc(m.subcategoria)}${m.tienda ? " · " + esc(m.tienda) : ""}</small></div>
       <div class="mr"><b class="${ing?"in":""}">${ing?"+":"−"}${corto(m.cantidad)}</b>
         <small>${f.getDate()} ${MES[f.getMonth()]}</small></div></li>`;
   }).join("");
@@ -330,15 +362,21 @@ function pintar() {
     document.getElementById("aud").innerHTML = D.auditoria.map(a => {
       const ing = a.naturaleza === "ingreso";
       return `<li>
-        <div class="top"><span>${a.concepto}</span>
+        <div class="top"><span>${esc(a.concepto)}</span>
           <b class="${ing?"in":""}">${ing?"+":"−"}${corto(a.cantidad)}</b></div>
         <div class="meta">${a.categoria} · ${a.subcategoria} · ${a.fecha} ·
           ${a.medio_pago || "sin medio"} <span class="tag">${a.fuente}</span></div>
-        ${a.texto_original ? `<div class="orig">"${a.texto_original}"</div>` : ""}
+        ${a.texto_original ? `<div class="orig">"${esc(a.texto_original)}"</div>` : ""}
       </li>`;
     }).join("");
   }
 
+  document.querySelectorAll(".mbar[data-m]").forEach(b => b.onclick = () => cargar(b.dataset.m));
+  // Fuera del mes en curso no hay "hoy" ni "año en curso": solo se muestra el mes
+  document.querySelectorAll("nav button").forEach(b => {
+    b.style.display = (D.actual || b.dataset.t === "mes") ? "" : "none";
+    b.setAttribute("aria-selected", String(b.dataset.t === "mes"));
+  });
   pintarPeriodo("mes");
   document.getElementById("estado").style.display = "none";
   document.getElementById("app").style.display = "block";
@@ -349,28 +387,40 @@ document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   pintarPeriodo(b.dataset.t);
 });
 
-(async () => {
-  const k = clave();
-  const est = document.getElementById("estado");
-  if (!k) {
-    est.innerHTML = "Falta la clave de acceso.<br>Abrí esta página añadiendo tu clave al final:<code>…/index.html#tuclave</code>";
-    return;
-  }
+const MESES_L = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+let K = "";
+function pintarNav() {
+  const L = D.meses_lista, sel = document.getElementById("mSel"), i = L.indexOf(D.mes);
+  sel.innerHTML = [...L].reverse().map(m => `<option value="${m}"${m === D.mes ? " selected" : ""}>${MESES_L[+m.slice(5) - 1]} ${m.slice(0, 4)}</option>`).join("");
+  document.getElementById("mPrev").disabled = i <= 0;
+  document.getElementById("mNext").disabled = i >= L.length - 1;
+}
+async function cargar(mes) {
+  const est = document.getElementById("estado"), app = document.getElementById("app");
+  app.classList.add("carga");
   try {
-    const r = await fetch(ENDPOINT + "?k=" + encodeURIComponent(k), { cache: "no-store" });
+    const r = await fetch(ENDPOINT + "?k=" + encodeURIComponent(K) + (mes ? "&mes=" + mes : ""), { cache: "no-store" });
     if (r.status === 401) {
       try { localStorage.removeItem("k"); } catch {}
+      app.style.display = "none"; est.style.display = "block";
       est.innerHTML = "Clave incorrecta.<br>Volvé a abrir la página con la clave correcta al final de la dirección.";
       return;
     }
     if (!r.ok) throw new Error("HTTP " + r.status);
     D = await r.json();
     if (D.error) throw new Error(D.error);
-    pintar();
+    pintar(); pintarNav();
   } catch (e) {
-    est.innerHTML = "No pude cargar los datos.<br><code>" + String(e.message || e) + "</code>";
-  }
-})();
+    est.style.display = "block"; est.innerHTML = "No pude cargar los datos.<br><code>" + esc(e.message || e) + "</code>";
+  } finally { app.classList.remove("carga"); }
+}
+document.getElementById("mSel").onchange = e => cargar(e.target.value);
+document.getElementById("mPrev").onclick = () => cargar(D.meses_lista[D.meses_lista.indexOf(D.mes) - 1]);
+document.getElementById("mNext").onclick = () => cargar(D.meses_lista[D.meses_lista.indexOf(D.mes) + 1]);
+K = clave();
+if (!K) document.getElementById("estado").innerHTML = "Falta la clave de acceso.<br>Abrí esta página añadiendo tu clave al final:<code>…/#tuclave</code>";
+else cargar();
 </script>
 </body>
 </html>
+
