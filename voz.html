@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>Registrar por voz</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --txt:#f1f5f9; --sub:#94a3b8; --acc:#22c55e; --neg:#f87171; --pos:#4ade80; --warn:#fbbf24; --line:#334155; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f1f5f9; --card:#fff; --txt:#0f172a; --sub:#64748b; --acc:#16a34a; --neg:#dc2626; --pos:#15803d; --warn:#b45309; --line:#e2e8f0; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         min-height:100vh; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; align-items:center; }
+  main { width:100%; max-width:460px; display:flex; flex-direction:column; gap:14px; }
+  h1 { font-size:18px; font-weight:600; margin:4px 0 0; color:var(--sub); text-align:center; }
+  #mic { width:150px; height:150px; border-radius:50%; border:0; margin:10px auto 0; background:var(--acc); color:#fff;
+         font-size:56px; cursor:pointer; box-shadow:0 8px 28px rgba(34,197,94,.35); transition:transform .1s; }
+  #mic:active { transform:scale(.96); }
+  #mic.on { background:#ef4444; box-shadow:0 0 0 14px rgba(239,68,68,.18), 0 0 0 30px rgba(239,68,68,.08); animation:pulso 1.2s infinite; }
+  @keyframes pulso { 50% { box-shadow:0 0 0 22px rgba(239,68,68,.12), 0 0 0 44px rgba(239,68,68,.04); } }
+  #estado { text-align:center; color:var(--sub); min-height:24px; }
+  #oido { text-align:center; font-size:20px; min-height:28px; word-break:break-word; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+  .monto { font-size:30px; font-weight:700; }
+  .monto.neg { color:var(--neg); } .monto.pos { color:var(--pos); }
+  .meta { color:var(--sub); margin-top:4px; }
+  .fila { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  button.b { border:1px solid var(--line); background:transparent; color:var(--txt); border-radius:12px; padding:12px 14px; font-size:15px; cursor:pointer; }
+  button.b.fuerte { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600; }
+  button.b.peligro { color:var(--neg); border-color:var(--neg); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .chips button { flex:0 1 auto; }
+  select, input[type=text] { width:100%; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--txt); font-size:16px; }
+  .err { color:var(--neg); }
+  #ultimos { list-style:none; margin:0; padding:0; }
+  #ultimos li { display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid var(--line); font-size:14px; }
+  #ultimos li:first-child { border-top:0; }
+  #ultimos .n { font-weight:600; white-space:nowrap; } .n.neg { color:var(--neg); } .n.pos { color:var(--pos); }
+  small { color:var(--sub); }
+  .oculto { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Toca y di el movimiento</h1>
+  <button id="mic" type="button" aria-label="Hablar">🎤</button>
+  <div id="estado" aria-live="polite">Listo</div>
+  <div id="oido"></div>
+
+  <div id="resultado" class="card oculto"></div>
+
+  <div class="card" id="manual">
+    <input id="texto" type="text" placeholder="…o escríbelo: 20 mil en cerveza en ara" enterkeyhint="send" autocomplete="off">
+    <div class="fila"><button class="b" id="enviar" type="button">Registrar</button></div>
+    <small>Si el micrófono no funciona en tu navegador, usa el micrófono del teclado y toca Registrar.</small>
+  </div>
+
+  <div class="card oculto" id="hist"><small>Registrados desde aquí</small><ul id="ultimos"></ul></div>
+</main>
+
+<script>
+// --- Configuración -------------------------------------------------------
+// La clave NO está en este archivo: entra por la dirección (voz.html#CLAVE),
+// se guarda en este dispositivo y se borra de la barra de direcciones.
+const API = "https://jhdmsccueqvsranqaths.supabase.co/functions/v1/bot";
+
+const $ = (id) => document.getElementById(id);
+let clave = "";
+try {
+  if (location.hash.length > 1) {
+    clave = decodeURIComponent(location.hash.slice(1));
+    localStorage.setItem("vk", clave);
+    history.replaceState(null, "", location.pathname);
+  } else clave = localStorage.getItem("vk") || "";
+} catch (e) { clave = clave || ""; }
+
+let ingreso = false;       // botón "Es un ingreso"
+let ultimoTexto = "";      // para reintentar con categoría
+let ocupado = false;
+
+const peso = (n) => "$" + Math.abs(n).toLocaleString("es-CO");
+function el(tag, props = {}, ...hijos) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") e.className = v; else if (k === "onclick") e.onclick = v; else e.setAttribute(k, v);
+  }
+  for (const h of hijos) e.append(h);
+  return e;
+}
+function estado(t, err) { $("estado").textContent = t; $("estado").className = err ? "err" : ""; }
+
+// --- Historial local (solo lo registrado desde este dispositivo) ----------
+function leerHist() { try { return JSON.parse(localStorage.getItem("vh") || "[]"); } catch (e) { return []; } }
+function guardarHist(h) { try { localStorage.setItem("vh", JSON.stringify(h.slice(0, 6))); } catch (e) {} }
+function pintarHist() {
+  const h = leerHist(); const ul = $("ultimos"); ul.textContent = "";
+  $("hist").classList.toggle("oculto", !h.length);
+  for (const x of h) {
+    ul.append(el("li", {}, el("span", {}, x.sub + (x.concepto ? " · " + x.concepto : "")),
+      el("span", { class: "n " + (x.cantidad > 0 ? "pos" : "neg") }, (x.cantidad > 0 ? "+" : "−") + peso(x.cantidad))));
+  }
+}
+
+// --- Llamada al servidor -------------------------------------------------
+async function llamar(cuerpo) {
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json", "x-voz-key": clave }, body: JSON.stringify(cuerpo) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (r.status === 401) { try { localStorage.removeItem("vk"); } catch (e) {} throw new Error("Clave incorrecta. Abre el enlace con la clave: voz.html#TU_CLAVE"); }
+  return j;
+}
+
+async function registrar(texto, sub) {
+  if (ocupado) return;
+  if (!clave) { estado("Falta la clave. Abre el enlace con #TU_CLAVE al final.", true); return; }
+  ocupado = true; ultimoTexto = texto;
+  $("oido").textContent = "“" + texto + "”";
+  estado("Registrando…");
+  try {
+    const j = await llamar({ texto, ingreso: ingreso || undefined, sub });
+    mostrar(j);
+  } catch (e) { estado(e.message || "Sin conexión. Intenta de nuevo.", true); }
+  ocupado = false;
+}
+
+function mostrar(j) {
+  const box = $("resultado"); box.textContent = ""; box.classList.remove("oculto");
+  if (j.estado === "guardado") {
+    ingreso = false;
+    estado("✓ Guardado");
+    const pos = j.cantidad > 0;
+    box.append(
+      el("div", { class: "monto " + (pos ? "pos" : "neg") }, (pos ? "+" : "−") + peso(j.cantidad)),
+      el("div", {}, j.subcategoria),
+      el("div", { class: "meta" }, `${j.categoria} · ${j.naturaleza === "gasto" ? "gasto" : j.naturaleza === "ingreso" ? "ingreso" : "no cuenta como gasto"}`),
+      el("div", { class: "meta" }, `${j.concepto || ""}${j.tienda ? " · " + j.tienda : ""} · ${j.fecha}`));
+    const fila = el("div", { class: "fila" },
+      el("button", { class: "b fuerte", type: "button", onclick: () => { box.classList.add("oculto"); $("oido").textContent = ""; estado("Listo"); } }, "Listo"),
+      el("button", { class: "b", type: "button", onclick: () => cambiarTipo(j) }, pos ? "↔ Es un gasto" : "↔ Es un ingreso"),
+      el("button", { class: "b peligro", type: "button", onclick: () => deshacer(j.id) }, "Deshacer"));
+    box.append(fila);
+    const h = leerHist(); h.unshift({ id: j.id, sub: j.subcategoria, concepto: j.concepto, cantidad: j.cantidad }); guardarHist(h); pintarHist();
+  } else if (j.estado === "clasificar") {
+    estado("¿En qué categoría lo pongo?");
+    box.append(el("div", { class: "monto" }, peso(j.cantidad)), el("div", { class: "meta" }, j.concepto || ""));
+    const chips = el("div", { class: "chips" });
+    const principales = (j.sugeridas && j.sugeridas.length ? j.sugeridas : ["Supermercado", "Comida fuera", "Licor", "Gasolina", "Otros ingresos", "Nómina"]).slice(0, 6);
+    for (const s of principales) chips.append(el("button", { class: "b", type: "button", onclick: () => registrar(ultimoTexto, s) }, s));
+    box.append(chips);
+    const sel = el("select", {}); sel.append(el("option", { value: "" }, "Más categorías…"));
+    for (const s of j.todas) sel.append(el("option", { value: s }, s));
+    sel.onchange = () => { if (sel.value) registrar(ultimoTexto, sel.value); };
+    box.append(el("div", { class: "fila" }, sel));
+    box.append(el("div", { class: "fila" },
+      el("button", { class: "b", type: "button", onclick: () => { ingreso = true; registrar(ultimoTexto); } }, "↔ Es un ingreso"),
+      el("button", { class: "b", type: "button", onclick: () => { box.classList.add("oculto"); estado("Cancelado"); } }, "Cancelar")));
+  } else if (j.estado === "pregunta") {
+    estado(j.mensaje, true);
+    box.classList.add("oculto");
+  } else {
+    estado(j.mensaje || "Algo falló", true);
+    box.classList.add("oculto");
+  }
+}
+
+// Cambiar el tipo de lo ya guardado: se deshace y se vuelve a registrar invertido.
+async function cambiarTipo(j) {
+  try {
+    const d = await llamar({ accion: "deshacer", id: j.id });
+    if (d.estado !== "deshecho") { estado(d.mensaje || "No se pudo cambiar", true); return; }
+    quitarHist(j.id);
+    ingreso = j.cantidad < 0;           // si era gasto, ahora ingreso
+    if (!ingreso) {                     // si era ingreso, forzar gasto: se pide categoría
+      $("resultado").classList.add("oculto");
+      estado("Dilo de nuevo como gasto, p. ej. “20 mil en mercado”", true);
+      return;
+    }
+    registrar(ultimoTexto);
+  } catch (e) { estado(e.message, true); }
+}
+
+function quitarHist(id) { guardarHist(leerHist().filter((x) => x.id !== id)); pintarHist(); }
+
+async function deshacer(id) {
+  try {
+    const d = await llamar({ accion: "deshacer", id });
+    if (d.estado === "deshecho") { quitarHist(id); $("resultado").classList.add("oculto"); $("oido").textContent = ""; estado("Deshecho"); }
+    else estado(d.mensaje || "No se pudo deshacer", true);
+  } catch (e) { estado(e.message, true); }
+}
+
+// --- Reconocimiento de voz ----------------------------------------------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, oyendo = false;
+if (!SR) {
+  $("mic").classList.add("oculto");
+  estado("Este navegador no dicta. Usa Chrome en Android, o el micrófono del teclado.", true);
+} else {
+  rec = new SR();
+  rec.lang = "es-CO"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  let final = "";
+  rec.onstart = () => { oyendo = true; final = ""; $("mic").classList.add("on"); estado("Te escucho…"); $("oido").textContent = ""; };
+  rec.onresult = (e) => {
+    let parcial = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += t; else parcial += t;
+    }
+    $("oido").textContent = (final + parcial).trim();
+  };
+  rec.onerror = (e) => {
+    oyendo = false; $("mic").classList.remove("on");
+    const m = { "not-allowed": "Permite el micrófono para este sitio.", "no-speech": "No te escuché. Toca y habla.", "network": "Sin internet para dictar." };
+    estado(m[e.error] || "Error de micrófono: " + e.error, true);
+  };
+  rec.onend = () => {
+    oyendo = false; $("mic").classList.remove("on");
+    const t = final.trim();
+    if (t) registrar(t);
+  };
+  $("mic").onclick = () => {
+    if (oyendo) { rec.stop(); return; }
+    $("resultado").classList.add("oculto");
+    try { rec.start(); } catch (e) { estado("Espera un segundo y vuelve a tocar.", true); }
+  };
+}
+
+// --- Texto manual --------------------------------------------------------
+function enviarTexto() { const t = $("texto").value.trim(); if (t) { $("texto").value = ""; $("resultado").classList.add("oculto"); registrar(t); } }
+$("enviar").onclick = enviarTexto;
+$("texto").addEventListener("keydown", (e) => { if (e.key === "Enter") enviarTexto(); });
+
+pintarHist();
+if (!clave) estado("Falta la clave: abre el enlace con #TU_CLAVE al final.", true);
+</script>
+</body>
+</html>
